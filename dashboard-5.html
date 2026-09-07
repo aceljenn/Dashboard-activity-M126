@@ -1,0 +1,877 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Dashboard Activity — Open Studio & EMS</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#f5f1ea; --card:#fffdfa; --ink:#332d27; --muted:#8a7f74; --border:#e6ddd0;
+    --primary:#a1785a; --primary-light:#f0e6da; --os:#8c6a4f; --ems:#c08a3e;
+    --good:#7a8c5a; --radius:16px; --shadow:0 4px 20px rgba(90,72,52,.08);
+  }
+  [data-theme="dark"]{
+    --bg:#120e13; --card:#1d1620; --ink:#f2e9ef; --muted:#b09bb0; --border:#3a2a3a;
+    --primary:#f472b6; --primary-light:#3a2233; --os:#c084fc; --ems:#fbbf24;
+    --good:#4ade80; --shadow:0 4px 24px rgba(244,114,182,.15);
+  }
+  [data-theme="dark"] .filters select, [data-theme="dark"] .filters input{ background:#000000; color:#ffffff; }
+  [data-theme="dark"] .filters input[type=date]{ color-scheme:dark; }
+  [data-theme="dark"] thead th{ background:rgba(244,114,182,.1); }
+  [data-theme="dark"] .search-box{ background:#1a1220; }
+  [data-theme="dark"] .reset-btn{ background:linear-gradient(135deg, var(--primary), #fbbf24); color:#1a0f16; }
+  [data-theme="dark"] .badge.os{ background:#3a2249; color:#c084fc; }
+  [data-theme="dark"] .badge.ems{ background:#40340f; color:#fbbf24; }
+  [data-theme="dark"] .status-badge.ok{ background:#123a24; color:#4ade80; }
+  [data-theme="dark"] .status-badge.warn{ background:#3a1424; color:#f87171; }
+  [data-theme="dark"] .materi-tag{ background:#2a1e2a; color:var(--ink); }
+  [data-theme="dark"] .card, [data-theme="dark"] .kpi, [data-theme="dark"] .table-card, [data-theme="dark"] .filters, [data-theme="dark"] .form-link-card{
+    border-color:rgba(244,114,182,.28);
+    background:linear-gradient(180deg, rgba(244,114,182,.06), rgba(244,114,182,0) 40%), var(--card);
+    box-shadow:0 4px 24px rgba(244,114,182,.14);
+  }
+  [data-theme="dark"] tbody tr:hover{ background:rgba(244,114,182,.06); }
+  .theme-toggle{border:1px solid var(--border);background:var(--card);color:var(--ink);width:38px;height:38px;border-radius:10px;cursor:pointer;display:flex;align-items:center;justify-content:center;box-shadow:var(--shadow);}
+  .theme-toggle:hover{border-color:var(--primary);color:var(--primary);}
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);background-image:radial-gradient(circle at 15% 0%, rgba(161,120,90,.10), transparent 45%), radial-gradient(circle at 85% 10%, rgba(192,138,62,.08), transparent 40%);background-attachment:fixed;color:var(--ink);transition:background .2s,color .2s;}
+  .wrap{max-width:1280px;margin:0 auto;padding:24px 20px 60px;}
+  header.top{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:22px;}
+  header.top h1{font-size:22px;margin:0;font-weight:800;letter-spacing:-.02em;}
+  header.top p{margin:4px 0 0;color:var(--muted);font-size:13px;}
+  .refresh-btn{border:1px solid var(--border);background:var(--card);color:var(--ink);padding:9px 16px;border-radius:10px;font-size:13px;cursor:pointer;display:flex;align-items:center;gap:6px;box-shadow:var(--shadow);transition:.15s;}
+  .refresh-btn:hover{border-color:var(--primary);color:var(--primary);}
+  .refresh-btn.spinning svg{animation:spin .8s linear infinite;}
+  @keyframes spin{to{transform:rotate(360deg);}}
+  .filters{background:linear-gradient(165deg, rgba(161,120,90,.05), rgba(161,120,90,0) 55%), var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;display:grid;grid-template-columns:repeat(5,1fr) auto;gap:12px;box-shadow:var(--shadow);margin-bottom:20px;align-items:end;}
+  .filters label{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:6px;}
+  .filters select, .filters input[type=date], .filters input[type=text]{width:100%;padding:9px 10px;border-radius:9px;border:1px solid var(--border);font-size:13px;background:#fafbff;color:#000;}
+  .filters input[type=date]{color-scheme:light;}
+  .filters select:focus, .filters input:focus{outline:2px solid var(--primary-light);border-color:var(--primary);}
+  .reset-btn{background:linear-gradient(135deg, var(--primary), #c08a3e);color:#fff;border:none;padding:10px 16px;border-radius:9px;font-size:13px;cursor:pointer;white-space:nowrap;height:38px;box-shadow:0 3px 10px rgba(161,120,90,.25);}
+  .reset-btn:hover{opacity:.85;}
+  .kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-bottom:22px;}
+  .kpi{background:linear-gradient(165deg, rgba(161,120,90,.06), rgba(161,120,90,0) 55%), var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px 20px;box-shadow:var(--shadow);cursor:pointer;transition:.15s;position:relative;overflow:hidden;}
+  .kpi:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(31,36,48,.1);}
+  .kpi.active{border-color:var(--primary);}
+  .kpi .label{font-size:12px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.04em;}
+  .kpi .value{font-size:30px;font-weight:800;margin-top:6px;letter-spacing:-.02em;}
+  .kpi .bar{height:4px;border-radius:2px;margin-top:12px;background:var(--border);overflow:hidden;}
+  .kpi .bar > span{display:block;height:100%;border-radius:2px;}
+  .kpi.total .bar>span{background:linear-gradient(90deg, var(--primary), #c08a3e);width:100%;}
+  .kpi.os .bar>span{background:var(--os);}
+  .kpi.ems .bar>span{background:var(--ems);}
+  .kpi.staff .bar>span{background:linear-gradient(90deg, var(--good), #a1785a);width:100%;}
+  .charts{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px;}
+  .charts .full{grid-column:1/-1;}
+  .card{background:linear-gradient(165deg, rgba(161,120,90,.05), rgba(161,120,90,0) 55%), var(--card);border:1px solid var(--border);border-radius:var(--radius);padding:18px;box-shadow:var(--shadow);}
+  .card h3{margin:0 0 4px;font-size:14px;font-weight:700;}
+  .card p.sub{margin:0 0 12px;font-size:12px;color:var(--muted);}
+  .chart-box{position:relative;height:260px;}
+  .chart-box.tall{height:320px;}
+  .table-card{background:linear-gradient(165deg, rgba(161,120,90,.05), rgba(161,120,90,0) 45%), var(--card);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow);overflow:hidden;}
+  .table-head{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;padding:16px 18px;border-bottom:1px solid var(--border);}
+  .table-head h3{margin:0;font-size:14px;font-weight:700;}
+  .search-box{display:flex;align-items:center;gap:8px;border:1px solid var(--border);border-radius:9px;padding:7px 12px;background:#fafbff;min-width:220px;}
+  .search-box input{border:none;background:transparent;outline:none;font-size:13px;width:100%;}
+  .table-scroll{overflow-x:auto;max-height:480px;overflow-y:auto;}
+  table{width:100%;border-collapse:collapse;font-size:13px;}
+  thead th{position:sticky;top:0;background:#fafbff;text-align:left;padding:10px 14px;font-size:11px;text-transform:uppercase;letter-spacing:.03em;color:var(--muted);border-bottom:1px solid var(--border);cursor:pointer;white-space:nowrap;}
+  thead th:hover{color:var(--primary);}
+  tbody td{padding:10px 14px;border-bottom:1px solid #f0f1f6;white-space:nowrap;}
+  tbody tr:hover{background:#fafbff;}
+  .badge{padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;display:inline-block;}
+  .badge.os{background:#eef1ff;color:var(--os);}
+  .badge.ems{background:#fff7e8;color:#b45309;}
+  .empty-state{padding:40px 20px;text-align:center;color:var(--muted);font-size:13px;}
+  .pagination{display:flex;align-items:center;justify-content:space-between;padding:12px 18px;font-size:12px;color:var(--muted);border-top:1px solid var(--border);}
+  .pagination button{border:1px solid var(--border);background:#fff;border-radius:7px;padding:5px 10px;cursor:pointer;font-size:12px;margin-left:6px;}
+  .pagination button:disabled{opacity:.4;cursor:not-allowed;}
+  .export-btn{border:1px solid var(--border);background:#fff;border-radius:9px;padding:7px 14px;font-size:12px;cursor:pointer;}
+  .export-btn:hover{border-color:var(--primary);color:var(--primary);}
+  .loading-overlay{position:fixed;inset:0;background:rgba(244,246,251,.9);display:flex;align-items:center;justify-content:center;flex-direction:column;gap:12px;z-index:50;font-size:13px;color:var(--muted);}
+  .spinner{width:34px;height:34px;border-radius:50%;border:3px solid var(--border);border-top-color:var(--primary);animation:spin .7s linear infinite;}
+  .error-box{background:#fff1f0;border:1px solid #ffccc7;color:#b91c1c;padding:16px 18px;border-radius:12px;font-size:13px;margin-bottom:16px;}
+  .personal-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:14px 0;}
+  .personal-stat{background:var(--primary-light);border-radius:12px;padding:12px 14px;}
+  .personal-stat .label{font-size:11px;color:var(--primary);font-weight:700;text-transform:uppercase;letter-spacing:.03em;}
+  .personal-stat .value{font-size:22px;font-weight:800;color:var(--ink);margin-top:4px;}
+  .personal-materi{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:8px;}
+  .personal-materi h4{font-size:12px;color:var(--muted);margin:0 0 8px;text-transform:uppercase;letter-spacing:.03em;}
+  .materi-tags{display:flex;flex-wrap:wrap;gap:6px;}
+  .materi-tag{background:#f0f1f6;border-radius:999px;padding:4px 10px;font-size:12px;color:var(--ink);}
+  .materi-tag b{color:var(--primary);}
+  .status-badge{padding:3px 10px;border-radius:999px;font-size:11px;font-weight:700;display:inline-block;white-space:normal;}
+  .status-badge.ok{background:#dcfce7;color:#15803d;}
+  .status-badge.warn{background:#fee2e2;color:#b91c1c;}
+  .form-links{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin-top:24px;}
+  .form-link-card{
+    display:flex;align-items:center;gap:14px;background:var(--card);border:1px solid var(--border);
+    border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow);text-decoration:none;color:var(--ink);
+    transition:.15s;
+  }
+  .form-link-card:hover{transform:translateY(-2px);border-color:var(--primary);}
+  .form-link-icon{font-size:22px;}
+  .form-link-title{display:block;font-weight:700;font-size:14px;}
+  .form-link-sub{display:block;font-size:12px;color:var(--muted);margin-top:2px;}
+  .form-link-arrow{margin-left:auto;font-size:18px;color:var(--muted);}
+  .form-link-card:hover .form-link-arrow{color:var(--primary);}
+  .watermark{text-align:center;font-size:12px;color:var(--muted);margin:22px 0 0;letter-spacing:.02em;}
+  .watermark span{opacity:.75;}
+  @media (max-width: 900px){
+    .personal-grid{grid-template-columns:repeat(2,1fr);}
+    .personal-materi{grid-template-columns:1fr;}
+    .form-links{grid-template-columns:1fr;}
+  }
+  @media (max-width: 900px){
+    .filters{grid-template-columns:repeat(2,1fr);}
+    .kpis{grid-template-columns:repeat(2,1fr);}
+    .charts{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+
+<div id="loading" class="loading-overlay">
+  <div class="spinner"></div>
+  <div>Memuat data dashboard...</div>
+</div>
+
+<div class="wrap" id="app" style="display:none;">
+  <header class="top">
+    <div>
+      <h1>📊 Dashboard Activity — Open Studio &amp; EMS</h1>
+      <p id="subtitle">by Jennifer (aceljenn)</p>
+    </div>
+    <div style="display:flex;gap:10px;">
+    <button class="refresh-btn" id="refreshBtn">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
+        <path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/>
+      </svg>
+      Refresh
+    </button>
+    <button class="theme-toggle" id="themeToggle" title="Ganti mode gelap/terang">
+      <svg id="themeIcon" width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"></svg>
+    </button>
+    </div>
+  </header>
+
+  <div id="errorBox"></div>
+
+  <div class="filters">
+    <div><label>Dari Tanggal</label><input type="date" id="fStart"></div>
+    <div><label>Sampai Tanggal</label><input type="date" id="fEnd"></div>
+    <div><label>Sesi</label><select id="fSesi"><option value="">Semua Sesi</option></select></div>
+    <div><label>Staff</label><select id="fStaff"><option value="">Semua Staff</option></select></div>
+    <div><label>Materi</label><select id="fMateri"><option value="">Semua Materi</option></select></div>
+    <button class="reset-btn" id="resetBtn">Reset Filter</button>
+  </div>
+
+  <div class="card" id="personalCard" style="display:none;margin-bottom:20px;border-color:var(--primary);">
+    <h3 id="personalTitle">👤 Ringkasan Personal</h3>
+    <p class="sub">Rekap aktivitas untuk staff yang dipilih di filter</p>
+    <div class="personal-grid">
+      <div class="personal-stat"><div class="label">Open Studio</div><div class="value" id="pOS">0</div></div>
+      <div class="personal-stat"><div class="label">EMS</div><div class="value" id="pEMS">0</div></div>
+      <div class="personal-stat"><div class="label">Total Activity</div><div class="value" id="pTotal">0</div></div>
+      <div class="personal-stat"><div class="label">Total Peserta</div><div class="value" id="pPeserta">0</div></div>
+    </div>
+    <div class="personal-materi">
+      <div>
+        <h4>Materi Open Studio yang Dibawakan</h4>
+        <div id="pMateriOS" class="materi-tags"></div>
+      </div>
+      <div>
+        <h4>Materi EMS yang Dibawakan</h4>
+        <div id="pMateriEMS" class="materi-tags"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="kpis">
+    <div class="kpi total" id="kpiTotal">
+      <div class="label">Total Activity</div><div class="value" id="vTotal">0</div>
+      <div class="bar"><span></span></div>
+    </div>
+    <div class="kpi os" id="kpiOS">
+      <div class="label">Open Studio</div><div class="value" id="vOS">0</div>
+      <div class="bar"><span id="barOS" style="width:0%"></span></div>
+    </div>
+    <div class="kpi ems" id="kpiEMS">
+      <div class="label">EMS</div><div class="value" id="vEMS">0</div>
+      <div class="bar"><span id="barEMS" style="width:0%"></span></div>
+    </div>
+    <div class="kpi staff" id="kpiStaff">
+      <div class="label">Total Staff Aktif</div><div class="value" id="vStaff">0</div>
+      <div class="bar"><span></span></div>
+    </div>
+  </div>
+
+  <div class="charts">
+    <div class="card">
+      <h3>Open Studio vs EMS</h3><p class="sub">Klik segmen untuk filter cepat</p>
+      <div class="chart-box"><canvas id="chartSesi"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>Aktivitas per Hari</h3><p class="sub">Distribusi berdasarkan hari dalam minggu</p>
+      <div class="chart-box"><canvas id="chartHari"></canvas></div>
+    </div>
+    <div class="card full">
+      <h3>Tren Aktivitas Harian</h3><p class="sub">Jumlah activity per tanggal (sesuai filter)</p>
+      <div class="chart-box tall"><canvas id="chartTrend"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>Materi Open Studio</h3><p class="sub">Jumlah aktivitas per materi</p>
+      <div class="chart-box tall"><canvas id="chartMateriOS"></canvas></div>
+    </div>
+    <div class="card">
+      <h3>Materi EMS</h3><p class="sub">Jumlah aktivitas per materi</p>
+      <div class="chart-box tall"><canvas id="chartMateriEMS"></canvas></div>
+    </div>
+    <div class="card full">
+      <h3>Aktivitas per Staff</h3><p class="sub">Perbandingan Open Studio vs EMS per orang</p>
+      <div class="chart-box tall"><canvas id="chartStaff"></canvas></div>
+    </div>
+  </div>
+
+  <div class="table-card" style="margin-bottom:20px;">
+    <div class="table-head"><h3>📋 Rekap Aktivitas per Staff</h3></div>
+    <div class="table-scroll" style="max-height:400px;">
+      <table>
+        <thead>
+          <tr>
+            <th rowspan="1">Nama</th><th>OPS</th><th>EMS</th><th>Total</th>
+            <th>Minggu 1</th><th>Minggu 2</th><th>Minggu 3</th><th>Minggu 4</th><th>Minggu 5</th>
+          </tr>
+        </thead>
+        <tbody id="staffSummaryTbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="card full" style="margin-bottom:20px;">
+    <h3>📈 Progress Harian vs Target — <span id="progressMonthLabel"></span></h3>
+    <p class="sub">EMS target 2 sesi/hari · OPS target 3 sesi/hari (Senin–Jumat), 2 sesi/hari (Sabtu–Minggu) · Otomatis mengikuti bulan berjalan, bulan depan akan bergeser sendiri</p>
+    <div class="table-scroll" style="max-height:360px;">
+      <table>
+        <thead>
+          <tr><th>Tanggal</th><th>Hari</th><th>EMS</th><th>OPS</th><th>Total</th><th>Target EMS</th><th>Target OPS</th><th>Target Total</th><th>Keterangan</th></tr>
+        </thead>
+        <tbody id="progressTbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="table-card">
+    <div class="table-head">
+      <h3>Log Aktivitas</h3>
+      <div style="display:flex;gap:10px;align-items:center;">
+        <div class="search-box">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#9099a8" stroke-width="2.4"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.3-4.3"/></svg>
+          <input type="text" id="searchInput" placeholder="Cari nama, materi...">
+        </div>
+        <button class="export-btn" id="exportBtn">⬇ Export CSV</button>
+      </div>
+    </div>
+    <div class="table-scroll">
+      <table>
+        <thead>
+          <tr>
+            <th data-key="tanggal">Tanggal ↕</th>
+            <th data-key="hari">Hari ↕</th>
+            <th data-key="sesi">Sesi ↕</th>
+            <th data-key="nama">Nama ↕</th>
+            <th data-key="materi">Materi ↕</th>
+            <th data-key="peserta">Peserta ↕</th>
+          </tr>
+        </thead>
+        <tbody id="tbody"></tbody>
+      </table>
+      <div class="empty-state" id="emptyState" style="display:none;">Tidak ada data yang cocok dengan filter.</div>
+    </div>
+    <div class="pagination">
+      <span id="pageInfo">0 baris</span>
+      <div><button id="prevPage">‹ Sebelumnya</button><button id="nextPage">Selanjutnya ›</button></div>
+    </div>
+  </div>
+
+  <div class="form-links">
+    <a href="https://docs.google.com/forms/d/e/1FAIpQLScT-qFb3PdssKCwpbLLjNK5QRf_HM923QYMEpIRaQHP4RSt1A/viewform" target="_blank" rel="noopener" class="form-link-card ems">
+      <span class="form-link-icon">📝</span>
+      <span>
+        <span class="form-link-title">Input Report EMS</span>
+        <span class="form-link-sub">Ecosystem Mastery Session — buka Google Form</span>
+      </span>
+      <span class="form-link-arrow">→</span>
+    </a>
+    <a href="https://docs.google.com/forms/u/2/d/e/1FAIpQLScKcdkIeGP2TXGNWzJQg2hB8XKA_vPqhXaFNsQd5IozzbSMAg/formResponse" target="_blank" rel="noopener" class="form-link-card ops">
+      <span class="form-link-icon">📝</span>
+      <span>
+        <span class="form-link-title">Input Report Open Studio</span>
+        <span class="form-link-sub">OPS — buka Google Form</span>
+      </span>
+      <span class="form-link-arrow">→</span>
+    </a>
+  </div>
+
+  <p class="watermark">Dashboard by Jennifer <span>(aceljenn)</span></p>
+</div>
+
+<script>
+  // ============================================================
+  // KONFIGURASI — ganti URL ini kalau kamu publish ulang sheet-nya
+  // ============================================================
+  const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRU2YSCOBT_dVCEh7bhbet5YseaY-kQZVZdOfZVxRoBXwyRczbNm7RbcHrykaMJhbtl50hXpC79u_W-/pub?gid=2113636825&single=true&output=csv';
+
+  // ============================================================
+  // DARK / LIGHT MODE
+  // ============================================================
+  const SUN_ICON = '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/>';
+  const MOON_ICON = '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>';
+
+  function applyTheme(theme){
+    document.documentElement.setAttribute('data-theme', theme);
+    document.getElementById('themeIcon').innerHTML = theme === 'dark' ? SUN_ICON : MOON_ICON;
+    localStorage.setItem('dashboard_theme', theme);
+    Chart.defaults.color = theme === 'dark' ? '#b09bb0' : '#8a7f74';
+    Chart.defaults.borderColor = theme === 'dark' ? '#3a2a3a' : '#e6ddd0';
+    COLOR_OS = theme === 'dark' ? '#c084fc' : '#8c6a4f';
+    COLOR_EMS = theme === 'dark' ? '#fbbf24' : '#c08a3e';
+    COLOR_TREND = theme === 'dark' ? '#f472b6' : '#a1785a';
+    COLOR_TREND_BG = theme === 'dark' ? 'rgba(244,114,182,.14)' : 'rgba(161,120,90,.12)';
+    // kalau data sudah ke-load, gambar ulang semua chart supaya warnanya ikut ganti
+    if (typeof ALL_RECORDS !== 'undefined' && ALL_RECORDS.length > 0){
+      applyFilters();
+    }
+  }
+
+  function initTheme(){
+    const saved = localStorage.getItem('dashboard_theme');
+    const preferDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+    applyTheme(saved || (preferDark ? 'dark' : 'light'));
+    document.getElementById('themeToggle').addEventListener('click', () => {
+      const current = document.documentElement.getAttribute('data-theme');
+      applyTheme(current === 'dark' ? 'light' : 'dark');
+    });
+  }
+
+  let ALL_RECORDS = [];
+  let FILTERED = [];
+  let sortKey = 'tanggal', sortDir = -1;
+  let page = 1;
+  const PAGE_SIZE = 15;
+  const charts = {};
+  let COLOR_OS = '#8c6a4f';
+  let COLOR_EMS = '#c08a3e';
+  let COLOR_TREND = '#a1785a';
+  let COLOR_TREND_BG = 'rgba(161,120,90,.12)';
+
+  function el(id){ return document.getElementById(id); }
+
+  function init(){ initTheme(); loadData(); }
+
+  function loadData(){
+    // cache-buster supaya selalu ambil versi terbaru, bukan versi cache browser
+    const url = CSV_URL + (CSV_URL.includes('?') ? '&' : '?') + '_ts=' + Date.now();
+    fetch(url)
+      .then(res => {
+        if (!res.ok) throw new Error('Gagal mengambil data (HTTP ' + res.status + ')');
+        return res.text();
+      })
+      .then(csvText => {
+        ALL_RECORDS = parseRecords(csvText);
+        el('loading').style.display = 'none';
+        el('app').style.display = 'block';
+        if (ALL_RECORDS.length === 0){
+          el('errorBox').innerHTML = '<div class="error-box">Data kosong atau kolom Sesi/Nama/Tanggal/Materi tidak ditemukan di CSV.</div>';
+        } else {
+          el('errorBox').innerHTML = '';
+        }
+        populateFilterOptions();
+        setDefaultDateRange();
+        applyFilters();
+      })
+      .catch(err => {
+        el('loading').style.display = 'none';
+        el('app').style.display = 'block';
+        el('errorBox').innerHTML = '<div class="error-box"><strong>Gagal memuat data.</strong><br>' + err.message +
+          '<br><br>Kemungkinan penyebab: sheet belum di-"Publish to web", atau URL CSV berubah. ' +
+          'Cek lagi lewat File &gt; Share &gt; Publish to web di Google Sheets.</div>';
+      });
+  }
+
+  // ============================================================
+  // DAFTAR STAFF RESMI — hanya nama-nama ini yang dianggap valid.
+  // Varian typo/ejaan berbeda akan dinormalisasi ke nama resmi di bawah.
+  // ============================================================
+  const CANONICAL_STAFF = [
+    'Harti Fitrianingsih', 'Hartono', 'Rachel Jennifer Victoria', 'Fidiartiningsih',
+    'Firly Savira Oktaviandi', 'Abdul Rosid Faqih', 'Arya Dwi Persada'
+  ];
+  const NAME_ALIASES = {
+    'rachel jennifer': 'Rachel Jennifer Victoria',
+    'rachel jenifer victoria': 'Rachel Jennifer Victoria',
+    'abdul rosyid faqih': 'Abdul Rosid Faqih',
+    'abdul rosid faqih': 'Abdul Rosid Faqih'
+  };
+  function normalizeName(raw){
+    const trimmed = String(raw || '').trim();
+    const lower = trimmed.toLowerCase();
+    if (NAME_ALIASES[lower]) return NAME_ALIASES[lower];
+    const exact = CANONICAL_STAFF.find(n => n.toLowerCase() === lower);
+    return exact || trimmed;
+  }
+
+  function parseRecords(csvText){
+    const parsed = Papa.parse(csvText, { skipEmptyLines: false });
+    const rows = parsed.data;
+
+    // cari baris header (mengandung kolom sesi + nama + tanggal + materi)
+    let headerIdx = -1, colMap = null;
+    for (let i = 0; i < Math.min(rows.length, 15); i++){
+      const lower = rows[i].map(c => String(c || '').trim().toLowerCase());
+      const map = detectColumns(lower);
+      if (map){ headerIdx = i; colMap = map; break; }
+    }
+    if (headerIdx === -1) return [];
+
+    const records = [];
+    for (let i = headerIdx + 1; i < rows.length; i++){
+      const row = rows[i];
+      if (!row || row.every(c => String(c || '').trim() === '')) continue;
+
+      let nama = colMap.nama != null ? String(row[colMap.nama] || '').trim() : '';
+      if (!nama) continue;
+      nama = normalizeName(nama);
+      if (!CANONICAL_STAFF.includes(nama)) continue; // hanya 7 staff resmi yang direkam
+
+      const tanggalDate = parseTanggal(colMap.tanggal != null ? row[colMap.tanggal] : '');
+      if (!tanggalDate) continue;
+
+      const sesi = colMap.sesi != null ? String(row[colMap.sesi] || '').trim() : '';
+      const hari = colMap.hari != null ? String(row[colMap.hari] || '').trim() : formatHari(tanggalDate);
+      const materi = colMap.materi != null ? String(row[colMap.materi] || '').trim() : '';
+      const peserta = colMap.peserta != null ? (Number(row[colMap.peserta]) || 0) : 0;
+
+      records.push({
+        sesi: sesi || 'Lainnya',
+        nama, hari,
+        tanggal: formatISO(tanggalDate),
+        tanggalLabel: formatDMY(tanggalDate),
+        materi, peserta
+      });
+    }
+    records.sort((a,b) => a.tanggal.localeCompare(b.tanggal));
+    return records;
+  }
+
+  function detectColumns(lowerRow){
+    const find = (cands) => {
+      for (const c of cands){ const i = lowerRow.indexOf(c); if (i !== -1) return i; }
+      for (const c of cands){ const i = lowerRow.findIndex(cell => cell.indexOf(c) !== -1); if (i !== -1) return i; }
+      return null;
+    };
+    const nama = find(['nama']);
+    const tanggal = find(['tanggal']);
+    const materi = find(['materi']);
+    if (nama == null || tanggal == null || materi == null) return null;
+    return {
+      sesi: find(['sesi']),
+      nama, tanggal, materi,
+      nik: find(['nik']),
+      hari: find(['hari']),
+      peserta: find(['total peserta','peserta'])
+    };
+  }
+
+  function parseTanggal(val){
+    if (!val) return null;
+    const s = String(val).trim();
+    const m = s.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    if (m){
+      const d = new Date(Number(m[3]), Number(m[2])-1, Number(m[1]));
+      if (!isNaN(d)) return d;
+    }
+    const d2 = new Date(s);
+    if (!isNaN(d2)) return d2;
+    return null;
+  }
+  function pad2(n){ return String(n).padStart(2,'0'); }
+  function formatISO(d){ return d.getFullYear() + '-' + pad2(d.getMonth()+1) + '-' + pad2(d.getDate()); }
+  function formatDMY(d){ return pad2(d.getDate()) + '/' + pad2(d.getMonth()+1) + '/' + d.getFullYear(); }
+  function formatHari(d){
+    const list = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+    return list[d.getDay()];
+  }
+
+  function populateFilterOptions(){
+    fillSelect('fSesi', [...new Set(ALL_RECORDS.map(r=>r.sesi))].sort(), 'Semua Sesi');
+    fillSelect('fStaff', [...new Set(ALL_RECORDS.map(r=>r.nama))].sort(), 'Semua Staff');
+    updateMateriOptions();
+    bindEvents();
+  }
+
+  function updateMateriOptions(){
+    const sesiVal = el('fSesi').value;
+    const pool = sesiVal ? ALL_RECORDS.filter(r => r.sesi === sesiVal) : ALL_RECORDS;
+    const materiSet = [...new Set(pool.map(r => r.materi).filter(Boolean))].sort();
+    const current = el('fMateri').value;
+    fillSelect('fMateri', materiSet, 'Semua Materi');
+    if (materiSet.includes(current)) el('fMateri').value = current;
+  }
+
+  function fillSelect(id, values, placeholder){
+    const sel = el(id);
+    sel.innerHTML = '<option value="">' + placeholder + '</option>' +
+      values.map(v => '<option value="' + escapeHtml(v) + '">' + escapeHtml(v) + '</option>').join('');
+  }
+
+  function setDefaultDateRange(){
+    if (ALL_RECORDS.length === 0) return;
+    const dates = ALL_RECORDS.map(r => r.tanggal).sort();
+    el('fStart').value = dates[0];
+    el('fEnd').value = dates[dates.length-1];
+  }
+
+  let eventsBound = false;
+  function bindEvents(){
+    if (eventsBound) return; // supaya tidak double-bind saat refresh
+    eventsBound = true;
+    ['fStart','fEnd','fStaff','fMateri'].forEach(id => el(id).addEventListener('change', () => { page=1; applyFilters(); }));
+    el('fSesi').addEventListener('change', () => { updateMateriOptions(); page=1; applyFilters(); });
+    el('resetBtn').addEventListener('click', () => {
+      el('fSesi').value=''; el('fStaff').value=''; el('fMateri').value='';
+      setDefaultDateRange(); updateMateriOptions(); page=1; applyFilters();
+    });
+    el('searchInput').addEventListener('input', () => { page=1; renderTable(); });
+    el('refreshBtn').addEventListener('click', refreshData);
+    el('exportBtn').addEventListener('click', exportCSV);
+    el('prevPage').addEventListener('click', () => { if (page>1){ page--; renderTable(); } });
+    el('nextPage').addEventListener('click', () => { page++; renderTable(); });
+    document.querySelectorAll('thead th').forEach(th => {
+      th.addEventListener('click', () => {
+        const key = th.dataset.key;
+        if (sortKey === key) sortDir *= -1; else { sortKey = key; sortDir = 1; }
+        renderTable();
+      });
+    });
+    el('kpiOS').addEventListener('click', () => quickFilterSesi('Open Studio'));
+    el('kpiEMS').addEventListener('click', () => quickFilterSesi('EMS'));
+    el('kpiTotal').addEventListener('click', () => { el('fSesi').value=''; updateMateriOptions(); applyFilters(); });
+  }
+
+  function quickFilterSesi(v){
+    el('fSesi').value = (el('fSesi').value === v) ? '' : v;
+    updateMateriOptions(); page = 1; applyFilters();
+  }
+
+  function refreshData(){
+    const btn = el('refreshBtn');
+    btn.classList.add('spinning');
+    fetch(CSV_URL + (CSV_URL.includes('?') ? '&' : '?') + '_ts=' + Date.now())
+      .then(res => res.text())
+      .then(csvText => {
+        ALL_RECORDS = parseRecords(csvText);
+        populateFilterOptions();
+        applyFilters();
+        btn.classList.remove('spinning');
+      })
+      .catch(() => btn.classList.remove('spinning'));
+  }
+
+  function applyFilters(){
+    const start = el('fStart').value, end = el('fEnd').value;
+    const sesi = el('fSesi').value, staff = el('fStaff').value, materi = el('fMateri').value;
+    FILTERED = ALL_RECORDS.filter(r => {
+      if (start && r.tanggal < start) return false;
+      if (end && r.tanggal > end) return false;
+      if (sesi && r.sesi !== sesi) return false;
+      if (staff && r.nama !== staff) return false;
+      if (materi && r.materi !== materi) return false;
+      return true;
+    });
+    document.querySelectorAll('.kpi').forEach(k => k.classList.remove('active'));
+    if (sesi === 'Open Studio') el('kpiOS').classList.add('active');
+    if (sesi === 'EMS') el('kpiEMS').classList.add('active');
+    renderKPI(); renderCharts(); renderTable();
+    renderPersonalSummary(staff);
+    renderProgressTable();
+  }
+
+  // ============================================================
+  // RINGKASAN PERSONAL PER STAFF
+  // ============================================================
+  function renderPersonalSummary(staffName){
+    const card = el('personalCard');
+    if (!staffName){ card.style.display = 'none'; return; }
+    card.style.display = 'block';
+    el('personalTitle').textContent = '👤 Ringkasan Personal — ' + staffName;
+
+    const rows = FILTERED.filter(r => r.nama === staffName);
+    const os = rows.filter(r => r.sesi === 'Open Studio');
+    const ems = rows.filter(r => r.sesi === 'EMS');
+    const totalPeserta = rows.reduce((sum,r) => sum + (r.peserta||0), 0);
+
+    el('pOS').textContent = os.length;
+    el('pEMS').textContent = ems.length;
+    el('pTotal').textContent = rows.length;
+    el('pPeserta').textContent = totalPeserta;
+
+    const countBy = (arr) => {
+      const c = {};
+      arr.forEach(r => { const m = r.materi || '(kosong)'; c[m] = (c[m]||0)+1; });
+      return Object.entries(c).sort((a,b)=>b[1]-a[1]);
+    };
+    const renderTags = (entries) => entries.length
+      ? entries.map(([m,n]) => '<span class="materi-tag">'+escapeHtml(m)+' <b>×'+n+'</b></span>').join('')
+      : '<span style="color:var(--muted);font-size:12px;">Tidak ada data pada rentang filter ini</span>';
+
+    el('pMateriOS').innerHTML = renderTags(countBy(os));
+    el('pMateriEMS').innerHTML = renderTags(countBy(ems));
+  }
+
+  // ============================================================
+  // TARGET HARIAN & PROGRESS
+  // ============================================================
+  function targetForHari(hari){
+    const weekend = (hari === 'Sabtu' || hari === 'Minggu');
+    return { ems: 2, ops: weekend ? 2 : 3 };
+  }
+
+  function renderProgressTable(){
+    // Otomatis pakai BULAN BERJALAN (tanggal 1 s/d tanggal terakhir bulan ini),
+    // tidak bergantung pada filter tanggal apa pun. Bulan depan akan otomatis
+    // bergeser sendiri karena selalu mengacu ke tanggal hari ini.
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth(); // 0-indexed
+    const lastDay = new Date(year, month + 1, 0).getDate();
+    const monthNames = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+
+    const byDate = {};
+    ALL_RECORDS.forEach(r => {
+      if (!byDate[r.tanggal]) byDate[r.tanggal] = { hari: r.hari, ems: 0, ops: 0 };
+      if (r.sesi === 'EMS') byDate[r.tanggal].ems++;
+      else if (r.sesi === 'Open Studio') byDate[r.tanggal].ops++;
+    });
+
+    const hariNames = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+    let rowsHtml = '';
+    for (let day = 1; day <= lastDay; day++){
+      const dateObj = new Date(year, month, day);
+      const iso = year + '-' + pad2(month+1) + '-' + pad2(day);
+      const hari = hariNames[dateObj.getDay()];
+      const rec = byDate[iso] || { hari, ems: 0, ops: 0 };
+      const tgt = targetForHari(hari);
+      const total = rec.ems + rec.ops;
+      const targetTotal = tgt.ems + tgt.ops;
+      const ok = rec.ems >= tgt.ems && rec.ops >= tgt.ops;
+      let keterangan;
+      if (ok){
+        keterangan = '<span class="status-badge ok">Target tercapai ✓</span>';
+      } else {
+        const parts = [];
+        if (rec.ems < tgt.ems) parts.push('EMS ' + (tgt.ems - rec.ems) + 'x');
+        if (rec.ops < tgt.ops) parts.push('OPS ' + (tgt.ops - rec.ops) + 'x');
+        keterangan = '<span class="status-badge warn">Kurang ' + parts.join(', ') + '</span>';
+      }
+      rowsHtml += '<tr>' +
+        '<td>'+pad2(day)+'/'+pad2(month+1)+'/'+year+'</td>' +
+        '<td>'+hari+'</td>' +
+        '<td>'+rec.ems+'</td><td>'+rec.ops+'</td><td>'+total+'</td>' +
+        '<td>'+tgt.ems+'</td><td>'+tgt.ops+'</td><td>'+targetTotal+'</td>' +
+        '<td>'+keterangan+'</td>' +
+      '</tr>';
+    }
+    el('progressTbody').innerHTML = rowsHtml;
+    const noteEl = document.getElementById('progressMonthLabel');
+    if (noteEl) noteEl.textContent = monthNames[month] + ' ' + year;
+  }
+
+  // ============================================================
+  // MINGGU KE-N (1 = tgl 1-7, 2 = 8-14, 3 = 15-21, 4 = 22-28, 5 = 29-31)
+  // ============================================================
+  function weekOfMonth(tanggalISO){
+    const day = Number(tanggalISO.split('-')[2]);
+    return Math.min(5, Math.ceil(day / 7));
+  }
+
+  function renderKPI(){
+    const total = FILTERED.length;
+    const os = FILTERED.filter(r=>r.sesi==='Open Studio').length;
+    const ems = FILTERED.filter(r=>r.sesi==='EMS').length;
+    const staff = new Set(FILTERED.map(r=>r.nama)).size;
+    el('vTotal').textContent = total; el('vOS').textContent = os;
+    el('vEMS').textContent = ems; el('vStaff').textContent = staff;
+    el('barOS').style.width = (total ? (os/total*100) : 0) + '%';
+    el('barEMS').style.width = (total ? (ems/total*100) : 0) + '%';
+  }
+
+  function destroyChart(key){ if (charts[key]){ charts[key].destroy(); delete charts[key]; } }
+
+  function renderCharts(){
+    renderSesiChart(); renderHariChart(); renderTrendChart();
+    renderMateriChart('Open Studio','chartMateriOS');
+    renderMateriChart('EMS','chartMateriEMS');
+    renderStaffChart();
+    renderStaffSummaryTable();
+  }
+
+  function renderSesiChart(){
+    const os = FILTERED.filter(r=>r.sesi==='Open Studio').length;
+    const ems = FILTERED.filter(r=>r.sesi==='EMS').length;
+    const other = FILTERED.length - os - ems;
+    const labels=['Open Studio','EMS'], data=[os,ems], colors=[COLOR_OS,COLOR_EMS];
+    if (other>0){ labels.push('Lainnya'); data.push(other); colors.push('#9ca3af'); }
+    destroyChart('sesi');
+    charts.sesi = new Chart(el('chartSesi'), {
+      type:'doughnut',
+      data:{ labels, datasets:[{ data, backgroundColor:colors, borderWidth:0 }] },
+      options:{ maintainAspectRatio:false,
+        plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, font:{size:11} } } },
+        onClick:(evt,elems)=>{ if (elems.length) quickFilterSesi(labels[elems[0].index]); }
+      }
+    });
+  }
+
+  function renderHariChart(){
+    const order=['Senin','Selasa','Rabu','Kamis','Jumat','Sabtu','Minggu'];
+    const osD=order.map(h=>FILTERED.filter(r=>r.hari===h&&r.sesi==='Open Studio').length);
+    const emsD=order.map(h=>FILTERED.filter(r=>r.hari===h&&r.sesi==='EMS').length);
+    destroyChart('hari');
+    charts.hari = new Chart(el('chartHari'), {
+      type:'bar',
+      data:{ labels:order, datasets:[
+        { label:'Open Studio', data:osD, backgroundColor:COLOR_OS, borderRadius:5, stack:'s' },
+        { label:'EMS', data:emsD, backgroundColor:COLOR_EMS, borderRadius:5, stack:'s' }
+      ]},
+      options:{ maintainAspectRatio:false,
+        plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, font:{size:11} } } },
+        scales:{ x:{ grid:{display:false} }, y:{ beginAtZero:true, ticks:{precision:0} } }
+      }
+    });
+  }
+
+  function renderTrendChart(){
+    const map={};
+    FILTERED.forEach(r=>{ map[r.tanggal]=(map[r.tanggal]||0)+1; });
+    const dates=Object.keys(map).sort();
+    const values=dates.map(d=>map[d]);
+    const labels=dates.map(d=>{ const p=d.split('-'); return p[2]+'/'+p[1]; });
+    destroyChart('trend');
+    charts.trend = new Chart(el('chartTrend'), {
+      type:'line',
+      data:{ labels, datasets:[{ label:'Jumlah Activity', data:values, borderColor:COLOR_TREND,
+        backgroundColor:COLOR_TREND_BG, fill:true, tension:.35, pointRadius:3, pointBackgroundColor:COLOR_TREND }] },
+      options:{ maintainAspectRatio:false, plugins:{ legend:{ display:false } },
+        scales:{ x:{ grid:{display:false} }, y:{ beginAtZero:true, ticks:{precision:0} } } }
+    });
+  }
+
+  function renderMateriChart(sesiVal, canvasId){
+    const pool = FILTERED.filter(r=>r.sesi===sesiVal);
+    const counts={};
+    pool.forEach(r=>{ const m=r.materi||'(kosong)'; counts[m]=(counts[m]||0)+1; });
+    const entries=Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+    const labels=entries.map(e=>e[0].length>28?e[0].slice(0,26)+'…':e[0]);
+    const data=entries.map(e=>e[1]);
+    destroyChart(canvasId);
+    charts[canvasId] = new Chart(el(canvasId), {
+      type:'bar',
+      data:{ labels, datasets:[{ data, backgroundColor: sesiVal==='Open Studio'?COLOR_OS:COLOR_EMS, borderRadius:5 }] },
+      options:{ indexAxis:'y', maintainAspectRatio:false, plugins:{ legend:{ display:false } },
+        scales:{ x:{ beginAtZero:true, ticks:{precision:0} }, y:{ grid:{display:false}, ticks:{ font:{size:10.5} } } } }
+    });
+  }
+
+  function renderStaffChart(){
+    const names=[...new Set(FILTERED.map(r=>r.nama))].sort();
+    const osD=names.map(n=>FILTERED.filter(r=>r.nama===n&&r.sesi==='Open Studio').length);
+    const emsD=names.map(n=>FILTERED.filter(r=>r.nama===n&&r.sesi==='EMS').length);
+    destroyChart('staff');
+    charts.staff = new Chart(el('chartStaff'), {
+      type:'bar',
+      data:{ labels:names, datasets:[
+        { label:'Open Studio', data:osD, backgroundColor:COLOR_OS, borderRadius:4 },
+        { label:'EMS', data:emsD, backgroundColor:COLOR_EMS, borderRadius:4 }
+      ]},
+      options:{ indexAxis:'y', maintainAspectRatio:false,
+        plugins:{ legend:{ position:'bottom', labels:{ boxWidth:10, font:{size:11} } } },
+        scales:{ x:{ beginAtZero:true, ticks:{precision:0}, grid:{display:true} },
+                 y:{ grid:{display:false}, ticks:{ font:{size:11} } } } }
+    });
+  }
+
+  function renderStaffSummaryTable(){
+    const names=[...new Set(FILTERED.map(r=>r.nama))].sort();
+    const rows = names.map(nama => {
+      const rowsForName = FILTERED.filter(r => r.nama === nama);
+      const ops = rowsForName.filter(r => r.sesi === 'Open Studio').length;
+      const ems = rowsForName.filter(r => r.sesi === 'EMS').length;
+      const weekly = [1,2,3,4,5].map(wk =>
+        rowsForName.filter(r => weekOfMonth(r.tanggal) === wk).reduce((s,r) => s + (r.peserta||0), 0)
+      );
+      return { nama, ops, ems, total: ops+ems, weekly };
+    });
+
+    el('staffSummaryTbody').innerHTML = rows.map(r => (
+      '<tr>' +
+        '<td>'+escapeHtml(r.nama)+'</td>' +
+        '<td>'+r.ops+'</td><td>'+r.ems+'</td><td><b>'+r.total+'</b></td>' +
+        r.weekly.map(w => '<td>'+w+'</td>').join('') +
+      '</tr>'
+    )).join('') || '<tr><td colspan="9" style="text-align:center;color:var(--muted);padding:20px;">Tidak ada data pada filter ini</td></tr>';
+  }
+
+  function renderTable(){
+    const q = el('searchInput').value.trim().toLowerCase();
+    let rows = FILTERED.filter(r => !q || r.nama.toLowerCase().includes(q) || r.materi.toLowerCase().includes(q) || r.sesi.toLowerCase().includes(q));
+    rows = rows.slice().sort((a,b)=>{
+      let va=a[sortKey], vb=b[sortKey];
+      if (sortKey==='peserta'){ va=Number(va)||0; vb=Number(vb)||0; return (va-vb)*sortDir; }
+      return String(va).localeCompare(String(vb))*sortDir;
+    });
+    const totalRows = rows.length;
+    const totalPages = Math.max(1, Math.ceil(totalRows/PAGE_SIZE));
+    if (page > totalPages) page = totalPages;
+    const startIdx = (page-1)*PAGE_SIZE;
+    const pageRows = rows.slice(startIdx, startIdx+PAGE_SIZE);
+    el('tbody').innerHTML = pageRows.map(r => (
+      '<tr>'+
+        '<td>'+escapeHtml(r.tanggalLabel)+'</td>'+
+        '<td>'+escapeHtml(r.hari)+'</td>'+
+        '<td><span class="badge '+(r.sesi==='Open Studio'?'os':'ems')+'">'+escapeHtml(r.sesi)+'</span></td>'+
+        '<td>'+escapeHtml(r.nama)+'</td>'+
+        '<td>'+escapeHtml(r.materi)+'</td>'+
+        '<td>'+(r.peserta||0)+'</td>'+
+      '</tr>'
+    )).join('');
+    el('emptyState').style.display = totalRows===0 ? 'block' : 'none';
+    el('pageInfo').textContent = totalRows===0 ? '0 baris' :
+      ('Menampilkan '+(startIdx+1)+'–'+Math.min(startIdx+PAGE_SIZE,totalRows)+' dari '+totalRows+' baris');
+    el('prevPage').disabled = page<=1;
+    el('nextPage').disabled = page>=totalPages;
+  }
+
+  function exportCSV(){
+    const header=['Tanggal','Hari','Sesi','Nama','Materi','Peserta'];
+    const rows=[header.join(',')];
+    FILTERED.forEach(r=>{
+      rows.push([r.tanggalLabel, r.hari, r.sesi, '"'+r.nama.replace(/"/g,'""')+'"', '"'+r.materi.replace(/"/g,'""')+'"', r.peserta||0].join(','));
+    });
+    const blob=new Blob([rows.join('\n')],{type:'text/csv;charset=utf-8;'});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a'); a.href=url; a.download='activity_log.csv'; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function escapeHtml(s){
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+  }
+
+  init();
+</script>
+</body>
+</html>
