@@ -694,8 +694,18 @@
   // MINGGU KE-N (1 = tgl 1-7, 2 = 8-14, 3 = 15-21, 4 = 22-28, 5 = 29-31)
   // ============================================================
   function weekOfMonth(tanggalISO){
-    const day = Number(tanggalISO.split('-')[2]);
-    return Math.min(5, Math.ceil(day / 7));
+    // Minggu dihitung per kalender Senin-Minggu asli (bukan blok tetap tanggal 1-7, 8-14, dst).
+    // Minggu 1 = pekan yang memuat tanggal 1 bulan tsb (bisa mulai dari akhir bulan sebelumnya
+    // kalau tanggal 1 bukan hari Senin). Dibatasi maksimal Minggu 5.
+    const d = new Date(tanggalISO + 'T00:00:00');
+    const year = d.getFullYear();
+    const month = d.getMonth();
+    const firstOfMonth = new Date(year, month, 1);
+    const firstDow = firstOfMonth.getDay(); // 0=Minggu,1=Senin,...6=Sabtu
+    const diffToMonday = (firstDow === 0) ? 6 : firstDow - 1;
+    const week1Start = new Date(year, month, 1 - diffToMonday);
+    const diffDays = Math.floor((d - week1Start) / 86400000);
+    return Math.min(5, Math.floor(diffDays / 7) + 1);
   }
 
   function renderKPI(){
