@@ -842,10 +842,17 @@
   }
 
   function setDefaultDateRange(){
-    if (ALL_RECORDS.length === 0) return;
-    const dates = ALL_RECORDS.map(r => r.tanggal).sort();
-    el('fStart').value = dates[0];
-    el('fEnd').value = dates[dates.length-1];
+    // "Dari Tanggal" selalu default ke HARI INI (bukan tanggal data paling lama),
+    // supaya setiap kali dashboard dibuka langsung fokus ke aktivitas hari ini.
+    const todayISO = formatISO(new Date());
+    let maxDate = todayISO;
+    if (ALL_RECORDS.length > 0){
+      const dates = ALL_RECORDS.map(r => r.tanggal).sort();
+      const latest = dates[dates.length - 1];
+      if (latest > maxDate) maxDate = latest;
+    }
+    el('fStart').value = todayISO;
+    el('fEnd').value = maxDate;
   }
 
   let eventsBound = false;
