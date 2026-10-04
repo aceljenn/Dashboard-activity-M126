@@ -125,22 +125,6 @@
   .watermark span{opacity:.75;}
 
   /* ===== Modal Jadwal ===== */
-  .modal-overlay{
-    position:fixed;inset:0;background:rgba(30,20,15,.45);display:none;align-items:center;justify-content:center;
-    z-index:100;padding:20px;backdrop-filter:blur(2px);
-  }
-  .modal-overlay.open{display:flex;}
-  [data-theme="dark"] .modal-overlay{ background:rgba(0,0,0,.6); }
-  .modal-box{
-    background:var(--card);border:1px solid var(--border);border-radius:var(--radius);
-    box-shadow:0 20px 60px rgba(0,0,0,.2);max-width:720px;width:100%;max-height:85vh;overflow-y:auto;
-    padding:22px;
-  }
-  [data-theme="dark"] .modal-box{ background:linear-gradient(180deg, rgba(244,114,182,.08), rgba(244,114,182,0) 40%), var(--card); box-shadow:0 20px 60px rgba(244,114,182,.18); }
-  .modal-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;}
-  .modal-head h3{margin:0;font-size:17px;font-weight:800;}
-  .modal-close{border:none;background:var(--primary-light);color:var(--ink);width:30px;height:30px;border-radius:8px;cursor:pointer;font-size:14px;}
-  .modal-close:hover{background:var(--primary);color:#fff;}
   .jadwal-nav{display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap;}
   .nav-btn{border:1px solid var(--border);background:var(--primary-light);color:var(--ink);width:32px;height:32px;border-radius:8px;cursor:pointer;font-size:16px;}
   .nav-btn:hover{border-color:var(--primary);color:var(--primary);}
@@ -164,6 +148,25 @@
   .jadwal-card-date{font-size:11px;color:var(--muted);margin-top:6px;padding-top:6px;border-top:1px solid var(--border);}
   .jadwal-empty{padding:16px 4px;text-align:center;color:var(--muted);font-size:12px;}
   @media (max-width:640px){ .jadwal-grid{grid-template-columns:1fr;} }
+
+  /* ===== Nav tab & halaman Jadwal ===== */
+  .top-nav{display:flex;gap:8px;margin-bottom:20px;border-bottom:1px solid var(--border);}
+  .nav-tab{
+    background:none;border:none;padding:10px 16px;font-size:13.5px;font-weight:700;color:var(--muted);
+    cursor:pointer;border-bottom:2px solid transparent;margin-bottom:-1px;
+  }
+  .nav-tab:hover{color:var(--ink);}
+  .nav-tab.active{color:var(--primary);border-bottom-color:var(--primary);}
+  .jadwal-section.watch h4{color:#0891b2;}
+  .jadwal-section.konten h4{color:#9333ea;}
+  .jadwal-card.watch-card{border-left:3px solid #0891b2;}
+  .jadwal-card.konten-card{border-left:3px solid #9333ea;}
+  .jadwal-card-deadline{font-size:11px;color:#b45309;margin-top:3px;font-weight:600;}
+  .jadwal-blocked-banner{
+    background:#fff7e0;border:1px solid #f5d976;color:#7a5c00;border-radius:12px;
+    padding:12px 16px;margin-bottom:18px;font-size:13px;font-weight:600;
+  }
+  [data-theme="dark"] .jadwal-blocked-banner{ background:#3a2f0a;border-color:#6b5614;color:#fbbf24; }
   @media (max-width: 900px){
     .personal-grid{grid-template-columns:repeat(2,1fr);}
     .personal-materi{grid-template-columns:1fr;}
@@ -186,16 +189,10 @@
 <div class="wrap" id="app" style="display:none;">
   <header class="top">
     <div>
-      <h1>📊 Dashboard Activity — Open Studio &amp; EMS</h1>
+      <h1 id="pageTitle">📊 Dashboard Activity — Open Studio &amp; EMS</h1>
       <p id="subtitle">by Jennifer (aceljenn)</p>
     </div>
     <div style="display:flex;gap:10px;">
-    <button class="refresh-btn" id="jadwalBtn">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
-        <rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/>
-      </svg>
-      Lihat Jadwal
-    </button>
     <button class="refresh-btn" id="refreshBtn">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4">
         <path d="M21 12a9 9 0 1 1-2.64-6.36"/><path d="M21 3v6h-6"/>
@@ -208,36 +205,59 @@
     </div>
   </header>
 
-  <div class="modal-overlay" id="jadwalOverlay">
-    <div class="modal-box">
-      <div class="modal-head">
-        <h3>📅 Jadwal Harian</h3>
-        <button class="modal-close" id="jadwalClose">✕</button>
+  <div class="top-nav">
+    <button class="nav-tab active" id="navActivity" data-page="activity">📊 Dashboard Activity</button>
+    <button class="nav-tab" id="navJadwal" data-page="jadwal">📅 Jadwal</button>
+  </div>
+
+  <!-- ============== PAGE: JADWAL ============== -->
+  <div id="pageJadwal" style="display:none;">
+    <div class="jadwal-blocked-banner" id="jadwalBlockedBanner" style="display:none;"></div>
+
+    <div class="filters" style="grid-template-columns:1fr 1fr auto;">
+      <div><label>Staff</label><select id="jadwalStaffFilter"><option value="">Semua Staff</option></select></div>
+      <div></div>
+      <button class="reset-btn" id="jadwalResetBtn" style="align-self:end;">Reset</button>
+    </div>
+
+    <div class="jadwal-nav" style="margin-bottom:18px;">
+      <button id="jadwalPrev" class="nav-btn">‹</button>
+      <div class="jadwal-date">
+        <input type="date" id="jadwalDate">
+        <span id="jadwalDateLabel"></span>
       </div>
-      <div class="jadwal-nav">
-        <button id="jadwalPrev" class="nav-btn">‹</button>
-        <div class="jadwal-date">
-          <input type="date" id="jadwalDate">
-          <span id="jadwalDateLabel"></span>
-        </div>
-        <button id="jadwalNext" class="nav-btn">›</button>
-        <button id="jadwalToday" class="today-btn">Hari ini</button>
+      <button id="jadwalNext" class="nav-btn">›</button>
+      <button id="jadwalToday" class="today-btn">Hari ini</button>
+    </div>
+
+    <div id="jadwalError"></div>
+
+    <div class="jadwal-grid" style="grid-template-columns:1fr 1fr;">
+      <div class="jadwal-section ops">
+        <h4>🟣 Open Studio (OPS)</h4>
+        <div id="jadwalOpsBody" class="jadwal-cards"></div>
+        <div class="jadwal-empty" id="jadwalOpsEmpty" style="display:none;">Tidak ada jadwal OPS</div>
       </div>
-      <div id="jadwalError"></div>
-      <div class="jadwal-grid">
-        <div class="jadwal-section ops">
-          <h4>🟣 Open Studio (OPS)</h4>
-          <div id="jadwalOpsBody" class="jadwal-cards"></div>
-          <div class="jadwal-empty" id="jadwalOpsEmpty" style="display:none;">Tidak ada jadwal OPS hari ini</div>
-        </div>
-        <div class="jadwal-section ems">
-          <h4>🟠 EMS</h4>
-          <div id="jadwalEmsBody" class="jadwal-cards"></div>
-          <div class="jadwal-empty" id="jadwalEmsEmpty" style="display:none;">Tidak ada jadwal EMS hari ini</div>
-        </div>
+      <div class="jadwal-section ems">
+        <h4>🟠 EMS</h4>
+        <div id="jadwalEmsBody" class="jadwal-cards"></div>
+        <div class="jadwal-empty" id="jadwalEmsEmpty" style="display:none;">Tidak ada jadwal EMS</div>
+      </div>
+      <div class="jadwal-section watch">
+        <h4>⌚ Watch Benefit</h4>
+        <div id="jadwalWatchBody" class="jadwal-cards"></div>
+        <div class="jadwal-empty" id="jadwalWatchEmpty" style="display:none;">Tidak ada jadwal Watch Benefit</div>
+      </div>
+      <div class="jadwal-section konten">
+        <h4>📝 Konten (KP/KE)</h4>
+        <div id="jadwalKontenBody" class="jadwal-cards"></div>
+        <div class="jadwal-empty" id="jadwalKontenEmpty" style="display:none;">Tidak ada jadwal konten</div>
       </div>
     </div>
   </div>
+
+  <!-- ============== PAGE: ACTIVITY (konten lama) ============== -->
+  <div id="pageActivity">
 
   <div id="errorBox"></div>
 
@@ -410,6 +430,8 @@
   </div>
 
   <p class="watermark">Dashboard by Jennifer <span>(aceljenn)</span></p>
+  </div>
+  <!-- /pageActivity -->
 </div>
 
 <script>
@@ -466,49 +488,75 @@
   function init(){ initTheme(); loadData(); initJadwal(); fetchJadwalData(); }
 
   // ============================================================
-  // JADWAL HARIAN (popup) — baca dari tab "Jadwal" yang dipublish sebagai CSV.
-  // Ganti URL ini setelah kamu publish tab Jadwal ke web (File > Share > Publish to web).
+  // JADWAL — baca dari tab "Jadwal" (format grid: NAMA x tanggal) yang dipublish
+  // sebagai CSV. 4 blok: OPS, EMS, WATCH BENEFIT, KONTEN — masing-masing diawali
+  // baris label (mis. "OPS") lalu baris "NAMA" berisi tanggal 1-31.
+  // Ganti URL ini kalau kamu publish ulang tab Jadwal ke link baru.
   // ============================================================
   const JADWAL_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRU2YSCOBT_dVCEh7bhbet5YseaY-kQZVZdOfZVxRoBXwyRczbNm7RbcHrykaMJhbtl50hXpC79u_W-/pub?gid=858536585&single=true&output=csv';
+
+  // Periode "tidak ada kegiatan" (event/launch besar). Edit array ini kalau ada
+  // periode blokir baru — format: start/end 'YYYY-MM-DD', label bebas.
+  // Catatan: ke depannya ini sebaiknya ditambahkan sebagai blok "BLOKIR" di sheet
+  // Jadwal (format sama seperti blok lain) supaya tidak perlu edit kode lagi;
+  // kalau blok itu terdeteksi di sheet, dashboard otomatis pakai itu duluan.
+  const JADWAL_BLOCKED_FALLBACK = [
+    { start: '2026-10-07', end: '2026-10-11', label: 'PO iPhone 18 — tidak ada kegiatan OPS/EMS' },
+    { start: '2026-10-16', end: '2026-10-18', label: 'NPI 18 — tidak ada kegiatan OPS/EMS' }
+  ];
+  let JADWAL_BLOCKED = JADWAL_BLOCKED_FALLBACK;
 
   let JADWAL_RECORDS = null; // null = belum di-fetch
   let jadwalCurrentDate = new Date(); // Date object, default hari ini
 
   function initJadwal(){
-    el('jadwalBtn').addEventListener('click', openJadwalModal);
-    el('jadwalClose').addEventListener('click', closeJadwalModal);
-    el('jadwalOverlay').addEventListener('click', (e) => { if (e.target.id === 'jadwalOverlay') closeJadwalModal(); });
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeJadwalModal(); });
+    el('navActivity').addEventListener('click', () => switchPage('activity'));
+    el('navJadwal').addEventListener('click', () => switchPage('jadwal'));
+
     el('jadwalPrev').addEventListener('click', () => shiftJadwalDate(-1));
     el('jadwalNext').addEventListener('click', () => shiftJadwalDate(1));
-    el('jadwalToday').addEventListener('click', () => { jadwalCurrentDate = new Date(); syncJadwalDateInput(); renderJadwalGrid(); });
+    el('jadwalToday').addEventListener('click', () => { jadwalCurrentDate = new Date(); syncJadwalDateInput(); renderJadwalPage(); });
     el('jadwalDate').addEventListener('change', () => {
       const v = el('jadwalDate').value;
-      if (v) { jadwalCurrentDate = new Date(v + 'T00:00:00'); renderJadwalGrid(); }
+      if (v) { jadwalCurrentDate = new Date(v + 'T00:00:00'); renderJadwalPage(); }
     });
+    el('jadwalStaffFilter').addEventListener('change', renderJadwalPage);
+    el('jadwalResetBtn').addEventListener('click', () => {
+      el('jadwalStaffFilter').value = '';
+      jadwalCurrentDate = new Date();
+      syncJadwalDateInput();
+      renderJadwalPage();
+    });
+    syncJadwalDateInput();
   }
 
-  function openJadwalModal(){
-    el('jadwalOverlay').classList.add('open');
-    jadwalCurrentDate = new Date(); // selalu reset ke tanggal hari ini setiap popup dibuka
-    syncJadwalDateInput();
-    if (JADWAL_RECORDS === null){
-      fetchJadwalData();
-    } else {
-      renderJadwalGrid();
-    }
+  function switchPage(page){
+    const isActivity = page === 'activity';
+    el('pageActivity').style.display = isActivity ? 'block' : 'none';
+    el('pageJadwal').style.display = isActivity ? 'none' : 'block';
+    el('navActivity').classList.toggle('active', isActivity);
+    el('navJadwal').classList.toggle('active', !isActivity);
+    el('pageTitle').textContent = isActivity ? '📊 Dashboard Activity — Open Studio & EMS' : '📅 Jadwal — Open Studio & EMS';
+    if (!isActivity) renderJadwalPage();
   }
-  function closeJadwalModal(){ el('jadwalOverlay').classList.remove('open'); }
 
   function shiftJadwalDate(delta){
     jadwalCurrentDate.setDate(jadwalCurrentDate.getDate() + delta);
     syncJadwalDateInput();
-    renderJadwalGrid();
+    renderJadwalPage();
   }
   function syncJadwalDateInput(){
     el('jadwalDate').value = formatISO(jadwalCurrentDate);
     const hariList = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
     el('jadwalDateLabel').textContent = hariList[jadwalCurrentDate.getDay()];
+  }
+
+  function populateJadwalStaffFilter(){
+    const sel = el('jadwalStaffFilter');
+    const current = sel.value;
+    sel.innerHTML = '<option value="">Semua Staff</option>' +
+      CANONICAL_STAFF.map(n => '<option value="'+escapeHtml(n)+'">'+escapeHtml(n)+'</option>').join('');
+    if (CANONICAL_STAFF.includes(current)) sel.value = current;
   }
 
   function fetchJadwalData(){
@@ -517,9 +565,12 @@
     fetch(url)
       .then(res => { if (!res.ok) throw new Error('HTTP ' + res.status); return res.text(); })
       .then(csvText => {
-        JADWAL_RECORDS = parseJadwalRecords(csvText);
+        const parsed = parseJadwalRecords(csvText);
+        JADWAL_RECORDS = parsed.records;
+        if (parsed.blocked && parsed.blocked.length > 0) JADWAL_BLOCKED = parsed.blocked;
         el('jadwalError').innerHTML = '';
-        renderJadwalGrid();
+        populateJadwalStaffFilter();
+        renderJadwalPage();
         renderJadwalSummaryKPI();
         if (typeof ALL_RECORDS !== 'undefined' && ALL_RECORDS.length > 0) renderPersonalSummary(el('fStaff').value);
       })
@@ -531,14 +582,8 @@
       });
   }
 
-  // ============================================================
-  // Parser format GRID: nama di kolom A (baris), tanggal 1-31 di kolom atas,
-  // isi sel = kode (S1/S2/S3 untuk OPS, E1.M / E2.W / E1.ACC untuk EMS).
-  // Ada 2 blok terpisah (blok OPS lalu blok EMS), masing-masing diawali baris "NAMA".
-  // Bulan & tahun otomatis dideteksi dari kecocokan hari (kolom weekday: THU/FRI/dst)
-  // dengan tanggal sekarang, supaya tetap akurat walau sheet diupdate ke bulan lain.
-  // ============================================================
   const WEEKDAY_ABBR_TO_INDEX = { SUN:0, MON:1, TUE:2, WED:3, THU:4, FRI:5, SAT:6 };
+  const JADWAL_BLOCK_TYPES = ['OPS', 'EMS', 'WATCH BENEFIT', 'KONTEN', 'BLOKIR', 'LIBUR'];
 
   function detectGridMonth(firstDayNum, firstDayAbbr){
     const targetDow = WEEKDAY_ABBR_TO_INDEX[firstDayAbbr];
@@ -549,7 +594,7 @@
       const y = cand.getFullYear(), m = cand.getMonth();
       const test = new Date(y, m, firstDayNum);
       if (test.getMonth() === m && test.getDay() === targetDow){
-        return { year: y, month: m }; // month: 0-indexed
+        return { year: y, month: m };
       }
     }
     return null;
@@ -558,20 +603,24 @@
   function parseJadwalRecords(csvText){
     const parsed = Papa.parse(csvText, { skipEmptyLines: false });
     const rows = parsed.data;
-    const out = [];
+    const records = [];
+    const blockedRanges = [];
     let i = 0;
 
     while (i < rows.length){
       const row = rows[i] || [];
-      if (String(row[0] || '').trim().toUpperCase() !== 'NAMA'){ i++; continue; }
+      const label = String(row[0] || '').trim().toUpperCase();
+      if (!JADWAL_BLOCK_TYPES.includes(label)){ i++; continue; }
 
-      const dayNumbers = row.slice(2).map(v => { const n = parseInt(v, 10); return isNaN(n) ? null : n; });
+      const blockType = label;
+      i++;
+      const headerRow = rows[i] || [];
+      const dayNumbers = headerRow.slice(2).map(v => { const n = parseInt(v, 10); return isNaN(n) ? null : n; });
       i++;
       const weekdayRow = rows[i] || [];
       const dayAbbrs = weekdayRow.slice(2).map(v => String(v || '').trim().toUpperCase());
       i++;
 
-      // cari tahun & bulan dari tanggal pertama yang valid di blok ini
       let gridYM = null;
       for (let k = 0; k < dayNumbers.length; k++){
         if (dayNumbers[k] && dayAbbrs[k]){
@@ -580,90 +629,115 @@
         }
       }
 
-      // kumpulkan entri mentah dulu, baru tentukan blok ini OPS atau EMS
       const rawEntries = [];
       while (i < rows.length){
         const r = rows[i];
         const isBlank = !r || r.every(c => String(c || '').trim() === '');
-        const isNextHeader = r && String(r[0] || '').trim().toUpperCase() === 'NAMA';
+        const isNextHeader = r && JADWAL_BLOCK_TYPES.includes(String(r[0] || '').trim().toUpperCase());
         if (isBlank){ i++; break; }
         if (isNextHeader) break;
 
         const namaRaw = String(r[0] || '').trim();
-        if (namaRaw){
+        if (namaRaw && gridYM){
           for (let ci = 2; ci < r.length; ci++){
             const code = String(r[ci] || '').trim().toUpperCase();
             if (!code) continue;
             const dayNum = dayNumbers[ci - 2];
-            if (!dayNum || !gridYM) continue;
+            if (!dayNum) continue;
             rawEntries.push({ namaRaw, dayNum, code });
           }
         }
         i++;
       }
-
       if (!gridYM || rawEntries.length === 0) continue;
 
-      const isOpsBlock = rawEntries.some(e => /^S\d/.test(e.code));
-      const isEmsBlock = rawEntries.some(e => /^E\d/.test(e.code));
-      const blockType = isEmsBlock ? 'EMS' : (isOpsBlock ? 'OPS' : null);
-      if (!blockType) continue;
+      if (blockType === 'BLOKIR' || blockType === 'LIBUR'){
+        // baris blokir: setiap entri jadi satu hari dengan label bebas (tidak difilter per nama)
+        rawEntries.forEach(e => {
+          const d = new Date(gridYM.year, gridYM.month, e.dayNum);
+          blockedRanges.push({ start: formatISO(d), end: formatISO(d), label: e.code });
+        });
+        continue;
+      }
 
       rawEntries.forEach(e => {
         const nama = normalizeName(e.namaRaw);
-        if (!CANONICAL_STAFF.includes(nama)) return; // hanya 7 staff resmi
-
+        if (!CANONICAL_STAFF.includes(nama)) return;
         const d = new Date(gridYM.year, gridYM.month, e.dayNum);
         let jam = e.code, materi = '';
         if (blockType === 'EMS'){
           const parts = e.code.split('.');
-          jam = parts[0];            // E1 / E2
-          materi = parts[1] || '';   // W / M / ACC
+          jam = parts[0];
+          materi = parts[1] || '';
         }
-        out.push({
+        records.push({
           tanggal: formatISO(d),
           tanggalLabel: formatDMY(d),
-          sesi: blockType,
-          nama,
-          jam,
-          materi,
-          catatan: ''
+          sesi: blockType, // 'OPS' | 'EMS' | 'WATCH BENEFIT' | 'KONTEN'
+          nama, jam, materi
         });
       });
     }
-    return out;
+
+    // gabungkan rentang blokir yang tanggalnya berurutan jadi satu range per label
+    blockedRanges.sort((a,b) => a.start.localeCompare(b.start));
+    const merged = [];
+    blockedRanges.forEach(b => {
+      const last = merged[merged.length - 1];
+      if (last && last.label === b.label){
+        const nextDay = new Date(last.end + 'T00:00:00'); nextDay.setDate(nextDay.getDate()+1);
+        if (formatISO(nextDay) === b.start){ last.end = b.end; return; }
+      }
+      merged.push({ ...b });
+    });
+
+    return { records, blocked: merged };
   }
 
-  // Mapping kode sesi -> label tampilan. Kalau nanti ada kode baru (S4, E3, dst),
-  // tinggal tambah barisnya di sini, tidak perlu ubah bagian lain.
   const SESI_LABELS = {
     'S1': 'OPS 1 (13.00)',
     'S2': 'OPS 2 (15.00)',
     'S3': 'OPS 3 (18.00)',
     'E1': 'EMS 1',
-    'E2': 'EMS 2'
+    'E2': 'EMS 2',
+    'WATCH BENEFIT': 'Watch Benefit (1 Minggu)',
+    'KP': 'Konten Promo',
+    'KE': 'Konten Edukasi'
   };
   function sesiLabel(code){
     const key = String(code || '').trim().toUpperCase();
     return SESI_LABELS[key] || code || '-';
   }
 
-  // Mapping kode Materi EMS -> label tampilan. Tambah baris baru di sini kalau ada kategori materi baru.
-  const MATERI_LABELS = {
-    'W': 'Watch',
-    'M': 'Macbook',
-    'ACC': 'Accessories'
-  };
+  const MATERI_LABELS = { 'W': 'Watch', 'M': 'Macbook', 'ACC': 'Accessories' };
   function materiLabel(code){
     const key = String(code || '').trim().toUpperCase();
     return MATERI_LABELS[key] || code || '';
   }
 
-  function renderJadwalGrid(){
+  function isDateBlocked(dateISO){
+    return JADWAL_BLOCKED.find(b => dateISO >= b.start && dateISO <= b.end) || null;
+  }
+
+  function renderJadwalPage(){
     const dateISO = formatISO(jadwalCurrentDate);
-    const dayRecords = (JADWAL_RECORDS || []).filter(r => r.tanggal === dateISO);
+    const staffFilter = el('jadwalStaffFilter').value;
+
+    const blocked = isDateBlocked(dateISO);
+    if (blocked){
+      el('jadwalBlockedBanner').style.display = 'block';
+      el('jadwalBlockedBanner').textContent = '⚠️ ' + blocked.label;
+    } else {
+      el('jadwalBlockedBanner').style.display = 'none';
+    }
+
+    let dayRecords = (JADWAL_RECORDS || []).filter(r => r.tanggal === dateISO);
+    if (staffFilter) dayRecords = dayRecords.filter(r => r.nama === staffFilter);
+
     const ops = dayRecords.filter(r => r.sesi === 'OPS');
     const ems = dayRecords.filter(r => r.sesi === 'EMS');
+    const watch = dayRecords.filter(r => r.sesi === 'WATCH BENEFIT');
+    const konten = dayRecords.filter(r => r.sesi === 'KONTEN');
 
     el('jadwalOpsBody').innerHTML = ops.map(r => (
       '<div class="jadwal-card">' +
@@ -683,7 +757,29 @@
       '</div>'
     )).join('');
     el('jadwalEmsEmpty').style.display = ems.length === 0 ? 'block' : 'none';
+
+    el('jadwalWatchBody').innerHTML = watch.map(r => (
+      '<div class="jadwal-card watch-card">' +
+        '<div class="jadwal-card-title">⌚ Watch Benefit</div>' +
+        '<div class="jadwal-card-name">'+escapeHtml(r.nama)+'</div>' +
+        '<div class="jadwal-card-materi">Berlaku 1 minggu sejak tanggal ini</div>' +
+        '<div class="jadwal-card-date">'+escapeHtml(r.tanggalLabel)+'</div>' +
+      '</div>'
+    )).join('');
+    el('jadwalWatchEmpty').style.display = watch.length === 0 ? 'block' : 'none';
+
+    el('jadwalKontenBody').innerHTML = konten.map(r => {
+      const deadline = new Date(r.tanggal + 'T00:00:00'); deadline.setDate(deadline.getDate() + 1);
+      return '<div class="jadwal-card konten-card">' +
+        '<div class="jadwal-card-title">'+escapeHtml(sesiLabel(r.jam))+'</div>' +
+        '<div class="jadwal-card-name">'+escapeHtml(r.nama)+'</div>' +
+        '<div class="jadwal-card-deadline">Upload paling lambat: '+escapeHtml(formatDMY(deadline))+'</div>' +
+        '<div class="jadwal-card-date">'+escapeHtml(r.tanggalLabel)+'</div>' +
+      '</div>';
+    }).join('');
+    el('jadwalKontenEmpty').style.display = konten.length === 0 ? 'block' : 'none';
   }
+
 
   function loadData(){
     // cache-buster supaya selalu ambil versi terbaru, bukan versi cache browser
