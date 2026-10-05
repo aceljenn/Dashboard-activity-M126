@@ -664,6 +664,22 @@
         const nama = normalizeName(e.namaRaw);
         if (!CANONICAL_STAFF.includes(nama)) return;
         const d = new Date(gridYM.year, gridYM.month, e.dayNum);
+
+        if (blockType === 'WATCH BENEFIT'){
+          // 1 tanda di sheet = berlaku 1 minggu penuh (Senin-Minggu) sejak tanggal itu
+          const dow = d.getDay(); // 0=Minggu..6=Sabtu
+          const diffToMonday = (dow === 0) ? -6 : 1 - dow;
+          const monday = new Date(d); monday.setDate(d.getDate() + diffToMonday);
+          for (let off = 0; off < 7; off++){
+            const dd = new Date(monday); dd.setDate(monday.getDate() + off);
+            records.push({
+              tanggal: formatISO(dd), tanggalLabel: formatDMY(dd),
+              sesi: 'WATCH BENEFIT', nama, jam: 'WATCH BENEFIT', materi: ''
+            });
+          }
+          return;
+        }
+
         let jam = e.code, materi = '';
         if (blockType === 'EMS'){
           const parts = e.code.split('.');
@@ -673,7 +689,7 @@
         records.push({
           tanggal: formatISO(d),
           tanggalLabel: formatDMY(d),
-          sesi: blockType, // 'OPS' | 'EMS' | 'WATCH BENEFIT' | 'KONTEN'
+          sesi: blockType, // 'OPS' | 'EMS' | 'KONTEN'
           nama, jam, materi
         });
       });
@@ -762,7 +778,7 @@
       '<div class="jadwal-card watch-card">' +
         '<div class="jadwal-card-title">⌚ Watch Benefit</div>' +
         '<div class="jadwal-card-name">'+escapeHtml(r.nama)+'</div>' +
-        '<div class="jadwal-card-materi">Berlaku 1 minggu sejak tanggal ini</div>' +
+        '<div class="jadwal-card-materi">Minggu berjalan</div>' +
         '<div class="jadwal-card-date">'+escapeHtml(r.tanggalLabel)+'</div>' +
       '</div>'
     )).join('');
@@ -822,6 +838,8 @@
   const NAME_ALIASES = {
     'rachel jennifer': 'Rachel Jennifer Victoria',
     'rachel jenifer victoria': 'Rachel Jennifer Victoria',
+    'rachel jennifer v': 'Rachel Jennifer Victoria',
+    'rachel jennifer v.': 'Rachel Jennifer Victoria',
     'abdul rosyid faqih': 'Abdul Rosid Faqih',
     'abdul rosid faqih': 'Abdul Rosid Faqih'
   };
