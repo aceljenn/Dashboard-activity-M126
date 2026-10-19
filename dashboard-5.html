@@ -159,6 +159,24 @@
   .nav-tab.active{color:var(--primary);border-bottom-color:var(--primary);}
   .jadwal-section.watch h4{color:#0891b2;}
   .jadwal-section.konten h4{color:#9333ea;}
+  .jadwal-section.training-week h4{color:#0f766e;}
+  .jadwal-section.training-week h4 span{font-weight:600;color:var(--muted);font-size:12px;}
+  .training-table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  .training-table th{background:transparent;text-align:center;line-height:1.35;padding:8px 10px;}
+  .training-table th:first-child, .training-table td:first-child{text-align:left;}
+  .training-table th.tr-selected{color:var(--primary);}
+  .training-table td{text-align:center;padding:8px 10px;white-space:normal;}
+  .tr-badge{display:inline-block;padding:3px 9px;border-radius:999px;font-size:11px;font-weight:700;margin:1px 2px;white-space:nowrap;}
+  .tr-badge.pagi{background:rgba(15,118,110,.14);color:#0f766e;}
+  .tr-badge.siang{background:rgba(29,78,216,.12);color:#1d4ed8;}
+  .tr-badge.rp{background:rgba(190,24,93,.12);color:#be185d;}
+  .tr-badge.store{background:rgba(161,120,90,.18);color:#8c6a4f;}
+  .tr-badge.lain{background:rgba(120,120,120,.15);color:var(--muted);}
+  [data-theme="dark"] .tr-badge.pagi{background:rgba(94,234,212,.15);color:#5eead4;}
+  [data-theme="dark"] .tr-badge.siang{background:rgba(147,197,253,.15);color:#93c5fd;}
+  [data-theme="dark"] .tr-badge.rp{background:rgba(249,168,212,.16);color:#f9a8d4;}
+  [data-theme="dark"] .tr-badge.store{background:rgba(251,191,36,.16);color:#fbbf24;}
+  [data-theme="dark"] .jadwal-section.training-week h4{color:#5eead4;}
   .jadwal-card.watch-card{border-left:3px solid #0891b2;}
   .jadwal-card.konten-card{border-left:3px solid #9333ea;}
   .jadwal-card-deadline{font-size:11px;color:#b45309;margin-top:3px;font-weight:600;}
@@ -253,6 +271,17 @@
         <div id="jadwalKontenBody" class="jadwal-cards"></div>
         <div class="jadwal-empty" id="jadwalKontenEmpty" style="display:none;">Tidak ada jadwal konten</div>
       </div>
+    </div>
+
+    <div class="jadwal-section training-week" style="margin-top:14px;">
+      <h4>🎓 Training &amp; Roleplay — 7 hari <span id="trainingRange"></span></h4>
+      <div style="overflow-x:auto;">
+        <table class="training-table">
+          <thead id="trainingHead"></thead>
+          <tbody id="trainingBody"></tbody>
+        </table>
+      </div>
+      <div class="jadwal-empty" id="trainingEmpty" style="display:none;">Tidak ada jadwal Training / Roleplay dalam 7 hari ini</div>
     </div>
   </div>
 
@@ -583,7 +612,7 @@
   }
 
   const WEEKDAY_ABBR_TO_INDEX = { SUN:0, MON:1, TUE:2, WED:3, THU:4, FRI:5, SAT:6 };
-  const JADWAL_BLOCK_TYPES = ['OPS', 'EMS', 'WATCH BENEFIT', 'KONTEN', 'BLOKIR', 'LIBUR'];
+  const JADWAL_BLOCK_TYPES = ['OPS', 'EMS', 'WATCH BENEFIT', 'KONTEN', 'TRAINING', 'ROLEPLAY', 'TRAINING & ROLEPLAY', 'BLOKIR', 'LIBUR'];
 
   function detectGridMonth(firstDayNum, firstDayAbbr){
     const targetDow = WEEKDAY_ABBR_TO_INDEX[firstDayAbbr];
@@ -612,7 +641,7 @@
       const label = String(row[0] || '').trim().toUpperCase();
       if (!JADWAL_BLOCK_TYPES.includes(label)){ i++; continue; }
 
-      const blockType = label;
+      const blockType = (label === 'ROLEPLAY' || label.startsWith('TRAINING')) ? 'TRAINING' : label;
       i++;
       const headerRow = rows[i] || [];
       const dayNumbers = headerRow.slice(2).map(v => { const n = parseInt(v, 10); return isNaN(n) ? null : n; });
@@ -629,6 +658,23 @@
         }
       }
 
+      // Samakan angka tanggal dengan baris hari. Kalau ada angka yang salah ketik
+      // (misal 24 terlewat), tanggal dihitung ulang dari urutan kolom.
+      const firstIdx = dayNumbers.findIndex(n => n);
+      const firstDay = firstIdx >= 0 ? dayNumbers[firstIdx] : null;
+      const resolvedDays = dayNumbers.map((n, idx) => {
+        if (!gridYM || firstDay === null) return n;
+        const targetDow = WEEKDAY_ABBR_TO_INDEX[dayAbbrs[idx]];
+        if (targetDow === undefined) return n;
+        const fits = (day) => {
+          const t = new Date(gridYM.year, gridYM.month, day);
+          return t.getMonth() === gridYM.month && t.getDay() === targetDow;
+        };
+        if (n && fits(n)) return n;
+        const alt = firstDay + (idx - firstIdx);
+        return fits(alt) ? alt : n;
+      });
+
       const rawEntries = [];
       while (i < rows.length){
         const r = rows[i];
@@ -642,7 +688,7 @@
           for (let ci = 2; ci < r.length; ci++){
             const code = String(r[ci] || '').trim().toUpperCase();
             if (!code) continue;
-            const dayNum = dayNumbers[ci - 2];
+            const dayNum = resolvedDays[ci - 2];
             if (!dayNum) continue;
             rawEntries.push({ namaRaw, dayNum, code });
           }
@@ -717,6 +763,10 @@
     'E1': 'EMS 1',
     'E2': 'EMS 2',
     'WATCH BENEFIT': 'Watch Benefit (1 Minggu)',
+    'TR': 'Training Store',
+    'TR.P': 'Training Pagi',
+    'TR.S': 'Training Siang',
+    'RP': 'Roleplay',
     'KP': 'Konten Promo',
     'KE': 'Konten Edukasi'
   };
@@ -794,6 +844,50 @@
       '</div>';
     }).join('');
     el('jadwalKontenEmpty').style.display = konten.length === 0 ? 'block' : 'none';
+
+    renderTrainingWeek();
+  }
+
+  // Tabel Training & Roleplay: 7 hari mulai dari tanggal yang dipilih.
+  // Baris = staff (atau 1 staff kalau filter Staff dipilih), kolom = 7 tanggal.
+  function trainingBadge(code){
+    const key = String(code || '').trim().toUpperCase();
+    const cls = key === 'TR.P' ? 'pagi' : key === 'TR.S' ? 'siang' : key === 'TR' ? 'store' : key === 'RP' ? 'rp' : 'lain';
+    return '<span class="tr-badge ' + cls + '">' + escapeHtml(sesiLabel(code)) + '</span>';
+  }
+
+  function renderTrainingWeek(){
+    const staffFilter = el('jadwalStaffFilter').value;
+    const start = new Date(jadwalCurrentDate.getFullYear(), jadwalCurrentDate.getMonth(), jadwalCurrentDate.getDate());
+    const days = [];
+    for (let k = 0; k < 7; k++){
+      const d = new Date(start); d.setDate(start.getDate() + k); days.push(d);
+    }
+    const hariShort = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
+    el('trainingRange').textContent = '(' + formatDMY(days[0]) + ' – ' + formatDMY(days[6]) + ')';
+
+    el('trainingHead').innerHTML = '<tr><th>Nama</th>' + days.map((d, k) =>
+      '<th' + (k === 0 ? ' class="tr-selected"' : '') + '>' + hariShort[d.getDay()] + '<br>' + pad2(d.getDate()) + '/' + pad2(d.getMonth() + 1) + '</th>'
+    ).join('') + '</tr>';
+
+    const byKey = {};
+    (JADWAL_RECORDS || []).filter(r => r.sesi === 'TRAINING').forEach(r => {
+      const key = r.nama + '|' + r.tanggal;
+      (byKey[key] = byKey[key] || []).push(r);
+    });
+
+    const staffList = staffFilter ? [staffFilter] : CANONICAL_STAFF;
+    let total = 0;
+    el('trainingBody').innerHTML = staffList.map(nama => {
+      const cells = days.map(d => {
+        const list = byKey[nama + '|' + formatISO(d)] || [];
+        total += list.length;
+        return '<td>' + list.map(r => trainingBadge(r.jam)).join('') + '</td>';
+      }).join('');
+      return '<tr><td><b>' + escapeHtml(nama) + '</b></td>' + cells + '</tr>';
+    }).join('');
+
+    el('trainingEmpty').style.display = total === 0 ? 'block' : 'none';
   }
 
 
