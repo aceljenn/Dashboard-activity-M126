@@ -467,7 +467,8 @@
   // ============================================================
   // KONFIGURASI — ganti URL ini kalau kamu publish ulang sheet-nya
   // ============================================================
-  const JADWAL_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRU2YSCOBT_dVCEh7bhbet5YseaY-kQZVZdOfZVxRoBXwyRczbNm7RbcHrykaMJhbtl50hXpC79u_W-/pub?output=csv';
+  const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRU2YSCOBT_dVCEh7bhbet5YseaY-kQZVZdOfZVxRoBXwyRczbNm7RbcHrykaMJhbtl50hXpC79u_W-/pub?gid=2113636825&single=true&output=csv';
+
   // ============================================================
   // DARK / LIGHT MODE
   // ============================================================
@@ -521,7 +522,7 @@
   // baris label (mis. "OPS") lalu baris "NAMA" berisi tanggal 1-31.
   // Ganti URL ini kalau kamu publish ulang tab Jadwal ke link baru.
   // ============================================================
-  const JADWAL_CSV_URL = '';
+  const JADWAL_CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRU2YSCOBT_dVCEh7bhbet5YseaY-kQZVZdOfZVxRoBXwyRczbNm7RbcHrykaMJhbtl50hXpC79u_W-/pub?gid=858536585&single=true&output=csv';
 
   // Periode "tidak ada kegiatan" (event/launch besar). Edit array ini kalau ada
   // periode blokir baru — format: start/end 'YYYY-MM-DD', label bebas.
@@ -613,34 +614,26 @@
   const WEEKDAY_ABBR_TO_INDEX = { SUN:0, MON:1, TUE:2, WED:3, THU:4, FRI:5, SAT:6 };
   const JADWAL_BLOCK_TYPES = ['OPS', 'EMS', 'WATCH BENEFIT', 'KONTEN', 'TRAINING', 'ROLEPLAY', 'TRAINING & ROLEPLAY', 'BLOKIR', 'LIBUR'];
 
-function detectGridMonth(firstDayNum, firstDayAbbr, monthText){
-  const monthNames = {
-    JANUARY: 0, JAN: 0, JANUARI: 0,
-    FEBRUARY: 1, FEB: 1, FEBRUARI: 1,
-    MARCH: 2, MAR: 2, MARET: 2,
-    APRIL: 3, APR: 3,
-    MAY: 4, MEI: 4,
-    JUNE: 5, JUN: 5, JUNI: 5,
-    JULY: 6, JUL: 6, JULI: 6,
-    AUGUST: 7, AUG: 7, AGUSTUS: 7,
-    SEPTEMBER: 8, SEP: 8,
-    OCTOBER: 9, OCT: 9, OKTOBER: 9,
-    NOVEMBER: 10, NOV: 10,
-    DECEMBER: 11, DEC: 11, DESEMBER: 11
-  };
-
-  const match = String(monthText || '')
-    .trim()
-    .toUpperCase()
-    .match(/^([A-Z]+)\s+(\d{4})$/);
-
-  if (!match || monthNames[match[1]] === undefined) return null;
-
-  return {
-    year: Number(match[2]),
-    month: monthNames[match[1]]
-  };
-}
+  // Kolom tanggal di sheet berurutan hari demi hari dan boleh dimulai dari akhir bulan
+  // sebelumnya (mis. 29, 30, 31, lalu 1, 2, 3). Tanggal kolom pertama dicari dari angka +
+  // nama hari (bulan yang paling dekat dengan hari ini), kolom berikutnya maju 1 hari per
+  // kolom. Jadi pergantian bulan dan angka yang salah ketik tidak membuat tanggal bergeser.
+  function detectGridStartDate(firstDayNum, firstDayAbbr){
+    const targetDow = WEEKDAY_ABBR_TO_INDEX[firstDayAbbr];
+    if (targetDow === undefined) return null;
+    const now = new Date();
+    let best = null, bestDiff = Infinity;
+    for (let offset = -3; offset <= 3; offset++){
+      const cand = new Date(now.getFullYear(), now.getMonth() + offset, 1);
+      const y = cand.getFullYear(), m = cand.getMonth();
+      const test = new Date(y, m, firstDayNum);
+      if (test.getMonth() === m && test.getDay() === targetDow){
+        const diff = Math.abs(test - now);
+        if (diff < bestDiff){ best = test; bestDiff = diff; }
+      }
+    }
+    return best;
+  }
 
   function parseJadwalRecords(csvText){
     const parsed = Papa.parse(csvText, { skipEmptyLines: false });
@@ -663,30 +656,17 @@ function detectGridMonth(firstDayNum, firstDayAbbr, monthText){
       const dayAbbrs = weekdayRow.slice(2).map(v => String(v || '').trim().toUpperCase());
       i++;
 
-      let gridYM = null;
+      let startDate = null, startIdx = -1;
       for (let k = 0; k < dayNumbers.length; k++){
         if (dayNumbers[k] && dayAbbrs[k]){
-          gridYM = detectGridMonth(dayNumbers[k], dayAbbrs[k]);
-          if (gridYM) break;
+          startDate = detectGridStartDate(dayNumbers[k], dayAbbrs[k]);
+          if (startDate){ startIdx = k; break; }
         }
       }
-
-      // Samakan angka tanggal dengan baris hari. Kalau ada angka yang salah ketik
-      // (misal 24 terlewat), tanggal dihitung ulang dari urutan kolom.
-      const firstIdx = dayNumbers.findIndex(n => n);
-      const firstDay = firstIdx >= 0 ? dayNumbers[firstIdx] : null;
-      const resolvedDays = dayNumbers.map((n, idx) => {
-        if (!gridYM || firstDay === null) return n;
-        const targetDow = WEEKDAY_ABBR_TO_INDEX[dayAbbrs[idx]];
-        if (targetDow === undefined) return n;
-        const fits = (day) => {
-          const t = new Date(gridYM.year, gridYM.month, day);
-          return t.getMonth() === gridYM.month && t.getDay() === targetDow;
-        };
-        if (n && fits(n)) return n;
-        const alt = firstDay + (idx - firstIdx);
-        return fits(alt) ? alt : n;
-      });
+      const colDate = (idx) => {
+        if (!startDate || !dayNumbers[idx]) return null;
+        return new Date(startDate.getFullYear(), startDate.getMonth(), startDate.getDate() + (idx - startIdx));
+      };
 
       const rawEntries = [];
       while (i < rows.length){
@@ -697,23 +677,23 @@ function detectGridMonth(firstDayNum, firstDayAbbr, monthText){
         if (isNextHeader) break;
 
         const namaRaw = String(r[0] || '').trim();
-        if (namaRaw && gridYM){
+        if (namaRaw && startDate){
           for (let ci = 2; ci < r.length; ci++){
             const code = String(r[ci] || '').trim().toUpperCase();
             if (!code) continue;
-            const dayNum = resolvedDays[ci - 2];
-            if (!dayNum) continue;
-            rawEntries.push({ namaRaw, dayNum, code });
+            const date = colDate(ci - 2);
+            if (!date) continue;
+            rawEntries.push({ namaRaw, date, code });
           }
         }
         i++;
       }
-      if (!gridYM || rawEntries.length === 0) continue;
+      if (!startDate || rawEntries.length === 0) continue;
 
       if (blockType === 'BLOKIR' || blockType === 'LIBUR'){
         // baris blokir: setiap entri jadi satu hari dengan label bebas (tidak difilter per nama)
         rawEntries.forEach(e => {
-          const d = new Date(gridYM.year, gridYM.month, e.dayNum);
+          const d = e.date;
           blockedRanges.push({ start: formatISO(d), end: formatISO(d), label: e.code });
         });
         continue;
@@ -722,7 +702,7 @@ function detectGridMonth(firstDayNum, firstDayAbbr, monthText){
       rawEntries.forEach(e => {
         const nama = normalizeName(e.namaRaw);
         if (!CANONICAL_STAFF.includes(nama)) return;
-        const d = new Date(gridYM.year, gridYM.month, e.dayNum);
+        const d = e.date;
 
         if (blockType === 'WATCH BENEFIT'){
           // 1 tanda di sheet = berlaku 1 minggu penuh (Senin-Minggu) sejak tanggal itu
