@@ -613,20 +613,34 @@
   const WEEKDAY_ABBR_TO_INDEX = { SUN:0, MON:1, TUE:2, WED:3, THU:4, FRI:5, SAT:6 };
   const JADWAL_BLOCK_TYPES = ['OPS', 'EMS', 'WATCH BENEFIT', 'KONTEN', 'TRAINING', 'ROLEPLAY', 'TRAINING & ROLEPLAY', 'BLOKIR', 'LIBUR'];
 
-  function detectGridMonth(firstDayNum, firstDayAbbr){
-    const targetDow = WEEKDAY_ABBR_TO_INDEX[firstDayAbbr];
-    if (targetDow === undefined) return null;
-    const now = new Date();
-    for (let offset = -2; offset <= 2; offset++){
-      const cand = new Date(now.getFullYear(), now.getMonth() + offset, 1);
-      const y = cand.getFullYear(), m = cand.getMonth();
-      const test = new Date(y, m, firstDayNum);
-      if (test.getMonth() === m && test.getDay() === targetDow){
-        return { year: y, month: m };
-      }
-    }
-    return null;
-  }
+function detectGridMonth(firstDayNum, firstDayAbbr, monthText){
+  const monthNames = {
+    JANUARY: 0, JAN: 0, JANUARI: 0,
+    FEBRUARY: 1, FEB: 1, FEBRUARI: 1,
+    MARCH: 2, MAR: 2, MARET: 2,
+    APRIL: 3, APR: 3,
+    MAY: 4, MEI: 4,
+    JUNE: 5, JUN: 5, JUNI: 5,
+    JULY: 6, JUL: 6, JULI: 6,
+    AUGUST: 7, AUG: 7, AGUSTUS: 7,
+    SEPTEMBER: 8, SEP: 8,
+    OCTOBER: 9, OCT: 9, OKTOBER: 9,
+    NOVEMBER: 10, NOV: 10,
+    DECEMBER: 11, DEC: 11, DESEMBER: 11
+  };
+
+  const match = String(monthText || '')
+    .trim()
+    .toUpperCase()
+    .match(/^([A-Z]+)\s+(\d{4})$/);
+
+  if (!match || monthNames[match[1]] === undefined) return null;
+
+  return {
+    year: Number(match[2]),
+    month: monthNames[match[1]]
+  };
+}
 
   function parseJadwalRecords(csvText){
     const parsed = Papa.parse(csvText, { skipEmptyLines: false });
